@@ -1,6 +1,6 @@
 export default function Home() {
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="flex items-center justify-center bg-gray-50 py-12">
       <div className="text-center">
         <h1 className="text-4xl font-bold text-gray-900 mb-4">
           Welcome to Next.js
@@ -9,7 +9,7 @@ export default function Home() {
           TypeScript + Tailwind CSS + Motion
         </p>
       </div>
-    </main>
+    </div>
   );
 }
 
