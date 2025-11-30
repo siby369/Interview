@@ -1,162 +1,28 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 
 interface VoiceInterviewProps {
   question?: string;
 }
 
-// Extend Window interface for TypeScript
-interface SpeechRecognition extends EventTarget {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  start(): void;
-  stop(): void;
-  abort(): void;
-  onresult: ((event: SpeechRecognitionEvent) => void) | null;
-  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
-  onend: (() => void) | null;
-}
-
-interface SpeechRecognitionEvent extends Event {
-  resultIndex: number;
-  results: SpeechRecognitionResultList;
-}
-
-interface SpeechRecognitionErrorEvent extends Event {
-  error: string;
-}
-
-interface SpeechRecognitionResultList {
-  length: number;
-  item(index: number): SpeechRecognitionResult;
-  [index: number]: SpeechRecognitionResult;
-}
-
-interface SpeechRecognitionResult {
-  length: number;
-  item(index: number): SpeechRecognitionAlternative;
-  [index: number]: SpeechRecognitionAlternative;
-  isFinal: boolean;
-}
-
-interface SpeechRecognitionAlternative {
-  transcript: string;
-  confidence: number;
-}
-
-declare global {
-  interface Window {
-    SpeechRecognition: {
-      new (): SpeechRecognition;
-    };
-    webkitSpeechRecognition: {
-      new (): SpeechRecognition;
-    };
-  }
-}
-
 export default function VoiceInterview({ 
   question = "Tell me about yourself and your background." 
 }: VoiceInterviewProps) {
-  const [isRecording, setIsRecording] = useState(false);
-  const [transcript, setTranscript] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
-
-  useEffect(() => {
-    // Check for browser support
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      setError(
-        "Speech recognition is not supported in your browser. Please use Chrome, Edge, or Safari."
-      );
-      return;
-    }
-
-    // Initialize speech recognition
-    const recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = "en-US";
-
-    // Handle results
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
-      let interimTranscript = "";
-      let finalTranscript = "";
-
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          finalTranscript += transcript + " ";
-        } else {
-          interimTranscript += transcript;
-        }
-      }
-
-      setTranscript((prev) => {
-        const base = prev + finalTranscript;
-        return base + interimTranscript;
-      });
-    };
-
-    // Handle errors
-    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-      console.error("Speech recognition error:", event.error);
-      if (event.error === "no-speech") {
-        setError("No speech detected. Please try again.");
-      } else if (event.error === "not-allowed") {
-        setError("Microphone permission denied. Please allow microphone access.");
-      } else {
-        setError(`Speech recognition error: ${event.error}`);
-      }
-      setIsRecording(false);
-    };
-
-    // Handle end
-    recognition.onend = () => {
-      if (isRecording) {
-        // Restart if still recording
-        try {
-          recognition.start();
-        } catch (err) {
-          console.error("Error restarting recognition:", err);
-        }
-      }
-    };
-
-    recognitionRef.current = recognition;
-
-    // Cleanup
-    return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-    };
-  }, [isRecording]);
+  const {
+    transcript,
+    isListening,
+    error,
+    startListening,
+    stopListening,
+    isSupported,
+  } = useSpeechRecognition();
 
   const toggleRecording = () => {
-    if (!recognitionRef.current) {
-      setError("Speech recognition is not available.");
-      return;
-    }
-
-    if (isRecording) {
-      recognitionRef.current.stop();
-      setIsRecording(false);
+    if (isListening) {
+      stopListening();
     } else {
-      setError(null);
-      setTranscript("");
-      try {
-        recognitionRef.current.start();
-        setIsRecording(true);
-      } catch (err) {
-        console.error("Error starting recognition:", err);
-        setError("Failed to start recording. Please try again.");
-      }
+      startListening();
     }
   };
 
@@ -174,19 +40,19 @@ export default function VoiceInterview({
       <div className="flex justify-center">
         <button
           onClick={toggleRecording}
-          disabled={!!error && !isRecording}
+          disabled={(!isSupported || (!!error && !isListening))}
           className={`
             relative w-24 h-24 rounded-full flex items-center justify-center
             transition-all duration-300 transform hover:scale-105 active:scale-95
             focus:outline-none focus:ring-4 focus:ring-offset-2
             ${
-              isRecording
+              isListening
                 ? "bg-red-500 hover:bg-red-600 focus:ring-red-500 animate-pulse"
                 : "bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500"
             }
-            ${error && !isRecording ? "opacity-50 cursor-not-allowed" : ""}
+            ${(!isSupported || (error && !isListening)) ? "opacity-50 cursor-not-allowed" : ""}
           `}
-          aria-label={isRecording ? "Stop recording" : "Start recording"}
+          aria-label={isListening ? "Stop recording" : "Start recording"}
         >
           {/* Microphone Icon */}
           <svg
@@ -205,7 +71,7 @@ export default function VoiceInterview({
           </svg>
 
           {/* Recording indicator */}
-          {isRecording && (
+          {isListening && (
             <span className="absolute inset-0 rounded-full bg-red-500 opacity-75 animate-ping"></span>
           )}
         </button>
@@ -214,7 +80,7 @@ export default function VoiceInterview({
       {/* Status Text */}
       <div className="text-center">
         <p className="text-lg font-medium text-gray-700">
-          {isRecording ? (
+          {isListening ? (
             <span className="text-red-600">Recording... Speak now</span>
           ) : (
             <span className="text-gray-500">Click the microphone to start</span>
