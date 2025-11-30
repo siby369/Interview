@@ -2,8 +2,8 @@ import Link from "next/link";
 
 export default function Home() {
   return (
-    <div className="relative min-h-[600px] flex items-center justify-center bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="relative min-h-[600px] flex items-center justify-center bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 -mx-4 sm:-mx-6 lg:-mx-8">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-3xl mx-auto">
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-6">
             Ace Your Next Interview
